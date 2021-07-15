@@ -1,0 +1,7 @@
+PUT http://localhost:3001/api/notes/60e2dff610eec04e84241e50
+Content-Type: application/json
+
+{
+  "content": "CSS is EZ",
+  "important": false
+}
