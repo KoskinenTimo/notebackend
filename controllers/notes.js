@@ -3,69 +3,91 @@ const notesRouter = require('express').Router();
 const Note = require('../models/note');
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
+const { authenticateToken } = require('../utils/middleware');
+const { createError } = require('../utils/createError');
 
-const getTokenFrom = request => {
-  const authorization = request.get('authorization');
-  if (authorization && authorization.toLowerCase().startsWith('bearer ')) {
-    return authorization.substring(7);
-  }
-  return null;
-};
 
-notesRouter.get('/', async (request, response) => {
+/**
+ * GET all Notes from db
+ */
+notesRouter.get('/', async(req,res,next) => {
   const notes = await Note
-    .find({}).populate('user', { username: 1, name: 1 });
-  response.json(notes.map(note => note.toJSON()));
+    .find({})
+    .populate('user', { username: 1, name: 1 });
+  res.json(notes.map(note => note.toJSON()));
 });
 
-notesRouter.post('/', async (request, response) => {
-  const body = request.body;
-
-  const token = getTokenFrom(request);
-  const decodedToken = jwt.verify(token, process.env.SECRET);
-  if (!token || !decodedToken.id) {
-    return response.status(401).json({ error: 'token missing or invalid' });
-  }
-  const user = await User.findById(decodedToken.id);
-
+/**
+ * POST one Note to db
+ */
+notesRouter.post('/', authenticateToken, async(req,res,next) => {
+  const { currentUser,body } = req;
   const note = new Note({
     content: body.content,
     important: body.important === undefined ? false : body.important,
     date: new Date(),
-    user: user._id
+    user: currentUser.id
   });
-
   const savedNote = await note.save();
+  const user = await User.findById(currentUser.id);
   user.notes = user.notes.concat(savedNote._id);
   await user.save();
 
-  response.json(savedNote.toJSON());
+  res.status(201).json(savedNote.toJSON());
 });
 
-notesRouter.get('/:id', async (request, response) => {
-  const note = await Note.findById(request.params.id);
+/**
+ * GET one Note from db
+ */
+notesRouter.get('/:id', async(req,res,next) => {
+  const note = await Note
+    .findById(req.params.id)
+    .populate('user', { username: 1, name: 1 });
   if (note) {
-    response.json(note.toJSON());
+    res.json(note.toJSON());
   } else {
-    response.status(404).end();
+    res.status(404).end();
   }
 });
 
-notesRouter.delete('/:id', async (request, response) => {
-  await Note.findByIdAndRemove(request.params.id);
-  response.status(204).end();
+/**
+ * DELETE one Note from db
+ */
+notesRouter.delete('/:id', authenticateToken, async(req,res,next) => {
+  const note = await Note.findById(req.params.id);
+  if (!note) {
+    res.status(404).json({ error: 'Not found' });
+  }
+  if (req.currentUser.id === note.user.toString()) {
+    await Note.findByIdAndRemove(req.params.id);
+    res.status(204).end();
+  } else {
+    next(createError(401,'Not the note creator, access denied'));
+  }
 });
 
-notesRouter.put('/:id', async (request,response,next) => {
-  const id = request.params.id;
-  const { body } = request;
-  const note = {
-    content: body.content,
-    important: body.important
-  };
+/**
+ * UPDATE one Note in db
+ */
+notesRouter.put('/:id', authenticateToken, async(req,res,next) => {
+  const note = await Note.findById(req.params.id);
+  if (!note) {
+    res.status(404).json({ error: 'Not found' });
+  }
+  if (req.currentUser.id === note.user.toString()) {
+    const id = req.params.id;
+    const { content,important } = req.body;
+    const newNote = {
+      content: content,
+      important: important
+    };
+    const updatedNote = await Note.findByIdAndUpdate(id, newNote, { new: true });
+    res.status(201).json(updatedNote);
+  } else {
+    next(createError(401,'Not the note creator, access denied'));
+  }
 
-  const updatedNote = await Note.findByIdAndUpdate(id, note, { new: true });
-  response.json(updatedNote);
 });
+
 
 module.exports = notesRouter;

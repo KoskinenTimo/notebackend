@@ -1,0 +1,8 @@
+POST http://localhost:3001/api/notes
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InRhdW5vdGFpIiwiaWQiOiI2MTA1YzNkMGI2NTkwOTA4ZTQxNzU0NWEiLCJpYXQiOjE2Mjc4MjQyODYsImV4cCI6MTYyNzgyNzg4Nn0.zvIGnGEsWJbfEXNT_liHGqj-qeyeYWktjYewl_TkrhY
+
+{
+  "content": "Note 7 for testing",
+  "important": true
+}

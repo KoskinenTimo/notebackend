@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 const noteSchema = new mongoose.Schema({
   content: {
     type: String,
-    required: true,
-    minlength: 5
+    required: [true, 'Content is required'],
+    minlength: [5, 'Content must be atleast 5 characters']
   },
   date: Date,
   important: Boolean,
